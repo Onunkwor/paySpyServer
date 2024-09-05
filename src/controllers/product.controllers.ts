@@ -373,6 +373,11 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
         }
       }
     }
+    // Respond with the result
+    res.status(200).json({
+      success: true,
+      message: `Price check completed. ${updatedProductsCount} products were updated.`,
+    });
   } catch (error: any) {
     console.log("Error updating prices:", error.message);
     res.status(500).json({
