@@ -7,7 +7,7 @@
     "clean": "rimraf ./build",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon",
-    "start": "ts-node -r  src/app.ts",
+    "start": "npm run build && node ./build/index.js",
     "build": "tsc"
   },
   "keywords": [],
