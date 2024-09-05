@@ -6,6 +6,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { PORT } from "./config";
 import authRouter from "./routers/auth.router";
+import productRouter from "./routers/product.router";
 //App begins
 const app: Application = express();
 
@@ -23,7 +24,7 @@ app.use(cookieParser());
 //logger
 
 app.use(async (req: Request, res: Response, next: NextFunction) => {
-  console.log("logger", req.method, req.path, req.body);
+  console.log("logger", req.method, req.path, req.body, req.params);
 
   next();
 });
@@ -48,6 +49,7 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   next();
 });
 app.use("/api/auth", authRouter);
+app.use("/api/product", productRouter);
 app.get("/", (_, res: Response) => {
   res.status(200).json({
     status: "OK",
