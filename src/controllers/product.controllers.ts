@@ -309,19 +309,18 @@ export const getProductsHome = async (req: Request, res: Response) => {
 
 export const checkAndUpdatePrices = async (req: Request, res: Response) => {
   try {
-    const products = (await ProductModel.find({}).select(
-      "productUrl currentPrice user"
-    )) as ProductType[];
+    const products = await ProductModel.find({}).select(
+      "productUrl currentPrice user title"
+    );
 
     let updatedProductsCount = 0;
-
-    for (const product of products) {
+    const updatePromises = products.map(async (product) => {
       const { productUrl, currentPrice } = product;
 
       // Fetch the latest price from the product URL
       const username = BRIGHT_DATA_USERNAME;
       const password = BRIGHT_DATA_PASSWORD;
-      const port = 2225;
+      const port = 22225;
       const session_id = (1000000 * Math.random()) | 0;
       const options = {
         auth: {
@@ -334,13 +333,13 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
       };
       const response = await axios.get(productUrl, options);
 
-      if (response.status == 200) {
+      if (response.status === 200) {
         const html = response.data;
         const $ = cheerio.load(html);
         const newPrice = $(".a-price[data-a-color=base]")
           .text()
           .split("$")
-          .filter((_, index) => index == 1)
+          .filter((_, index) => index === 1)
           .join("");
 
         // Check if the price has changed
@@ -348,26 +347,29 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
           // Update the price history
           const priceHistory = product.priceHistory || [];
           priceHistory.push({
-            currentPrice: currentPrice,
-            originalPrice: product.originalPrice || currentPrice,
+            currentPrice,
+            originalPrice: currentPrice,
             discount: product.discount || "0",
             date: new Date(),
           });
 
-          // Update the product with the new price and price history
-          await ProductModel.findByIdAndUpdate(product._id, {
-            currentPrice: newPrice,
-            priceHistory,
-          });
+          // Prepare the update query
+          await ProductModel.updateOne(
+            { _id: product._id },
+            {
+              currentPrice: newPrice,
+              priceHistory,
+            }
+          );
 
           updatedProductsCount++;
 
           const user = await userModel.findById(product.user);
           // Send an email if the price is reduced
-          if (parseFloat(newPrice) < parseFloat(currentPrice)) {
+          if (parseFloat(newPrice) < parseFloat(currentPrice) && user) {
             const mailOptions = {
               from: "Price Spy <raphael.onun@gmail.com>",
-              to: user?.email,
+              to: user.email,
               subject: "Price Drop Alert",
               text: `The price of ${product.title} has dropped from ${currentPrice} to ${newPrice}. Check it out here: ${productUrl}`,
             };
@@ -376,7 +378,10 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
           }
         }
       }
-    }
+    });
+
+    // Wait for all update promises to complete
+    await Promise.all(updatePromises);
 
     // Respond with the result
     res.status(200).json({
