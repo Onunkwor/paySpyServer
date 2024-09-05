@@ -309,10 +309,9 @@ export const getProductsHome = async (req: Request, res: Response) => {
 
 export const checkAndUpdatePrices = async (req: Request, res: Response) => {
   try {
-    const products = (await ProductModel.find({}).populate({
-      path: "user",
-      model: userModel,
-    })) as ProductType[];
+    const products = (await ProductModel.find({}).select(
+      "productUrl currentPrice user"
+    )) as ProductType[];
 
     let updatedProductsCount = 0;
 
