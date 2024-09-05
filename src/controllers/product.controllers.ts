@@ -13,7 +13,6 @@ import ProductModel from "../models/product.model";
 import mongoose, { Document, Types } from "mongoose";
 import nodemailer from "nodemailer";
 import { userModel } from "../models/user.model";
-import pLimit from "p-limit";
 
 export interface ProductRequest extends Request {
   senderID: string;
@@ -308,83 +307,86 @@ export const getProductsHome = async (req: Request, res: Response) => {
   }
 };
 
-const limit = pLimit(5); // Limit concurrent requests
-
-const fetchProductPrice = async (product: any) => {
-  const { productUrl, currentPrice } = product;
-  const username = BRIGHT_DATA_USERNAME;
-  const password = BRIGHT_DATA_PASSWORD;
-  const port = 22225;
-  const session_id = (1000000 * Math.random()) | 0;
-  const options = {
-    auth: {
-      username: `${username}-session-${session_id}`,
-      password,
-    },
-    host: "brd.superproxy.io",
-    port,
-    rejectUnauthorized: false,
-  };
-  try {
-    const response = await axios.get(productUrl, options);
-    if (response.status === 200) {
-      const html = response.data;
-      const $ = cheerio.load(html);
-      const newPrice = $(".a-price[data-a-color=base]")
-        .text()
-        .split("$")
-        .filter((_, index) => index === 1)
-        .join("");
-
-      if (newPrice && newPrice !== currentPrice) {
-        const priceHistory = product.priceHistory || [];
-        priceHistory.push({
-          currentPrice,
-          originalPrice: product.originalPrice || currentPrice,
-          discount: product.discount || "0",
-          date: new Date(),
-        });
-
-        await ProductModel.updateOne(
-          { _id: product._id },
-          {
-            currentPrice: newPrice,
-            priceHistory,
-          }
-        );
-
-        const user = await userModel.findById(product.user);
-        if (parseFloat(newPrice) < parseFloat(currentPrice) && user) {
-          const mailOptions = {
-            from: "Price Spy <raphael.onun@gmail.com>",
-            to: user.email,
-            subject: "Price Drop Alert",
-            text: `The price of ${product.title} has dropped from ${currentPrice} to ${newPrice}. Check it out here: ${productUrl}`,
-          };
-          await transporter.sendMail(mailOptions);
-        }
-      }
-    }
-  } catch (error: any) {
-    console.error(`Failed to fetch price for ${productUrl}:`, error.message);
-  }
-};
-
 export const checkAndUpdatePrices = async (req: Request, res: Response) => {
   try {
     const products = await ProductModel.find({}).select(
-      "productUrl currentPrice user title priceHistory originalPrice discount"
+      "productUrl currentPrice user title"
     );
 
-    const updatePromises = products.map((product) =>
-      limit(() => fetchProductPrice(product))
-    );
+    let updatedProductsCount = 0;
+    const updatePromises = products.map(async (product) => {
+      const { productUrl, currentPrice } = product;
 
+      // Fetch the latest price from the product URL
+      const username = BRIGHT_DATA_USERNAME;
+      const password = BRIGHT_DATA_PASSWORD;
+      const port = 22225;
+      const session_id = (1000000 * Math.random()) | 0;
+      const options = {
+        auth: {
+          username: `${username}-session-${session_id}`,
+          password,
+        },
+        host: "brd.superproxy.io",
+        port,
+        rejectUnauthorized: false,
+      };
+      const response = await axios.get(productUrl, options);
+
+      if (response.status === 200) {
+        const html = response.data;
+        const $ = cheerio.load(html);
+        const newPrice = $(".a-price[data-a-color=base]")
+          .text()
+          .split("$")
+          .filter((_, index) => index === 1)
+          .join("");
+
+        // Check if the price has changed
+        if (newPrice && newPrice !== currentPrice) {
+          // Update the price history
+          const priceHistory = product.priceHistory || [];
+          priceHistory.push({
+            currentPrice,
+            originalPrice: currentPrice,
+            discount: product.discount || "0",
+            date: new Date(),
+          });
+
+          // Prepare the update query
+          await ProductModel.updateOne(
+            { _id: product._id },
+            {
+              currentPrice: newPrice,
+              priceHistory,
+            }
+          );
+
+          updatedProductsCount++;
+
+          const user = await userModel.findById(product.user);
+          // Send an email if the price is reduced
+          if (parseFloat(newPrice) < parseFloat(currentPrice) && user) {
+            const mailOptions = {
+              from: "Price Spy <raphael.onun@gmail.com>",
+              to: user.email,
+              subject: "Price Drop Alert",
+              text: `The price of ${product.title} has dropped from ${currentPrice} to ${newPrice}. Check it out here: ${productUrl}`,
+            };
+
+            await transporter.sendMail(mailOptions);
+          }
+        }
+      }
+    });
+
+    // Wait for all update promises to complete
     await Promise.all(updatePromises);
 
+    // Respond with the result
     res.status(200).json({
       success: true,
-      message: `Price check completed. ${products.length} products processed.`,
+      message: `Price check completed. ${updatedProductsCount} products were updated.`,
     });
   } catch (error: any) {
     console.log("Error updating prices:", error.message);
