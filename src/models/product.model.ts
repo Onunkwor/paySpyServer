@@ -7,8 +7,6 @@ const productSchema = new mongoose.Schema(
     image: { type: String, required: true },
     title: { type: String, required: true },
     currentPrice: { type: String, required: true },
-    originalPrice: { type: String },
-    averagePrice: { type: String },
     priceHistory: [
       {
         currentPrice: { type: String },
@@ -17,8 +15,6 @@ const productSchema = new mongoose.Schema(
         date: { type: Date, default: Date.now },
       },
     ],
-    lowestPrice: { type: String },
-    highestPrice: { type: String },
     discount: { type: String },
     description: { type: Array<string> },
     category: { type: String },
