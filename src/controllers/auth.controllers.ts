@@ -125,7 +125,6 @@ export const login = async (req: Request, res: Response) => {
     const user = await userModel.findOne({
       email: email,
     });
-    console.log(user);
 
     if (!user) {
       return res.status(404).json({
