@@ -12,7 +12,7 @@ const app: Application = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://pricespyy.vercel.app/"], // Replace with your frontend URL
+    origin: ["http://localhost:5173", "https://pricespyy.vercel.app"], // Replace with your frontend URL
     credentials: true, // Allow cookies to be sent and received
   })
 );

@@ -4,10 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "clean": "rimraf ./build",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon",
-    "start": "npm run build && node ./build/index.js",
-    "build": "npm install && rimraf ./build && tsc "
+    "start": "ts-node -r tsconfig-paths/register src/app.ts",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
