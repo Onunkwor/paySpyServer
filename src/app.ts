@@ -40,7 +40,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.post("/api/product/cron", checkAndUpdatePrices);
+app
+  .route("/api/product/cron")
+  .get(checkAndUpdatePrices)
+  .post(checkAndUpdatePrices);
 
 // Auth and Product routes
 app.use("/api/auth", authRouter);
