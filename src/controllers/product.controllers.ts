@@ -314,6 +314,8 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
       model: userModel,
     })) as ProductType[];
 
+    let updatedProductsCount = 0;
+
     for (const product of products) {
       const { productUrl, currentPrice } = product;
 
@@ -358,11 +360,14 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
             currentPrice: newPrice,
             priceHistory,
           });
+
+          updatedProductsCount++;
+
           const userEmail = (product.user as UserType).email;
           // Send an email if the price is reduced
           if (parseFloat(newPrice) < parseFloat(currentPrice)) {
             const mailOptions = {
-              from: "Price Spy '<raphael.onun@gmail.com>'",
+              from: "Price Spy <raphael.onun@gmail.com>",
               to: userEmail,
               subject: "Price Drop Alert",
               text: `The price of ${product.title} has dropped from ${currentPrice} to ${newPrice}. Check it out here: ${productUrl}`,
@@ -373,6 +378,7 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
         }
       }
     }
+
     // Respond with the result
     res.status(200).json({
       success: true,
