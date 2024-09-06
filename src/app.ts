@@ -7,7 +7,10 @@ import cookieParser from "cookie-parser";
 import { PORT } from "./config";
 import authRouter from "./routers/auth.router";
 import productRouter from "./routers/product.router";
-import { checkAndUpdatePrices } from "./controllers/product.controllers";
+import {
+  fetchAndUpdatePrices,
+  sendPriceDropNotifications,
+} from "./controllers/product.controllers";
 
 //App begins
 const app: Application = express();
@@ -41,9 +44,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app
-  .route("/api/product/cron")
-  .get(checkAndUpdatePrices)
-  .post(checkAndUpdatePrices);
+  .route("/api/product/fetchAndUpdate")
+  .get(fetchAndUpdatePrices)
+  .post(fetchAndUpdatePrices);
+app
+  .route("/api/product/sendEmail")
+  .get(sendPriceDropNotifications)
+  .post(sendPriceDropNotifications);
 
 // Auth and Product routes
 app.use("/api/auth", authRouter);

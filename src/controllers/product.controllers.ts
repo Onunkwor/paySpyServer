@@ -307,17 +307,16 @@ export const getProductsHome = async (req: Request, res: Response) => {
   }
 };
 
-export const checkAndUpdatePrices = async (req: Request, res: Response) => {
+export const fetchAndUpdatePrices = async (req: Request, res: Response) => {
   try {
     const products = await ProductModel.find({}).select(
-      "productUrl currentPrice user title"
+      "productUrl currentPrice"
     );
 
     let updatedProductsCount = 0;
     const updatePromises = products.map(async (product) => {
       const { productUrl, currentPrice } = product;
 
-      // Fetch the latest price from the product URL
       const username = BRIGHT_DATA_USERNAME;
       const password = BRIGHT_DATA_PASSWORD;
       const port = 22225;
@@ -342,9 +341,7 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
           .filter((_, index) => index === 1)
           .join("");
 
-        // Check if the price has changed
         if (newPrice && newPrice !== currentPrice) {
-          // Update the price history
           const priceHistory = product.priceHistory || [];
           priceHistory.push({
             currentPrice,
@@ -353,7 +350,6 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
             date: new Date(),
           });
 
-          // Prepare the update query
           await ProductModel.updateOne(
             { _id: product._id },
             {
@@ -363,33 +359,65 @@ export const checkAndUpdatePrices = async (req: Request, res: Response) => {
           );
 
           updatedProductsCount++;
-
-          const user = await userModel.findById(product.user);
-          // Send an email if the price is reduced
-          if (parseFloat(newPrice) < parseFloat(currentPrice) && user) {
-            const mailOptions = {
-              from: "Price Spy <raphael.onun@gmail.com>",
-              to: user.email,
-              subject: "Price Drop Alert",
-              text: `The price of ${product.title} has dropped from ${currentPrice} to ${newPrice}. Check it out here: ${productUrl}`,
-            };
-
-            await transporter.sendMail(mailOptions);
-          }
         }
       }
     });
 
-    // Wait for all update promises to complete
     await Promise.all(updatePromises);
 
-    // Respond with the result
     res.status(200).json({
       success: true,
       message: `Price check completed. ${updatedProductsCount} products were updated.`,
     });
   } catch (error: any) {
     console.log("Error updating prices:", error.message);
+    res.status(500).json({
+      success: false,
+      msg: error.message,
+    });
+  }
+};
+
+export const sendPriceDropNotifications = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const products = await ProductModel.find({}).select(
+      "user currentPrice priceHistory title productUrl"
+    );
+
+    const emailPromises = products.map(async (product) => {
+      const user = await userModel.findById(product.user);
+
+      if (user && product.priceHistory && product.priceHistory.length > 0) {
+        const lastPriceEntry =
+          product.priceHistory[product.priceHistory.length - 1];
+        const previousPrice = lastPriceEntry?.currentPrice;
+        const newPrice = product.currentPrice;
+        if (!previousPrice) return;
+        // Check if the price has dropped
+        if (parseFloat(newPrice) < parseFloat(previousPrice)) {
+          const mailOptions = {
+            from: "Price Spy <raphael.onun@gmail.com>",
+            to: user.email,
+            subject: "Price Drop Alert",
+            text: `The price of ${product.title} has dropped from ${previousPrice} to ${newPrice}. Check it out here: ${product.productUrl}`,
+          };
+
+          await transporter.sendMail(mailOptions);
+        }
+      }
+    });
+
+    await Promise.all(emailPromises);
+
+    res.status(200).json({
+      success: true,
+      message: `Price drop notifications sent.`,
+    });
+  } catch (error: any) {
+    console.log("Error sending notifications:", error.message);
     res.status(500).json({
       success: false,
       msg: error.message,
