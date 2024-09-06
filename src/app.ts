@@ -45,10 +45,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app
-  .route("/api/product/fetchPrice")
-  .get(fetchAndStoreNewPrices)
-  .post(fetchAndStoreNewPrices);
-app
   .route("/api/product/updatePrice")
   .get(updateProductPrices)
   .post(updateProductPrices);
@@ -72,4 +68,8 @@ app.get("/", (_, res: Response) => {
 app.listen(PORT, () => {
   console.log(`App is listening on ${PORT}`);
   connectDB();
+  // Fetch and store new prices immediately when the server starts
+  fetchAndStoreNewPrices()
+    .then(() => console.log("Initial fetch and store process completed"))
+    .catch((err) => console.error("Error during initial fetch:", err));
 });

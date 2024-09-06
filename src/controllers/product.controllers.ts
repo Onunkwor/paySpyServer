@@ -307,7 +307,7 @@ export const getProductsHome = async (req: Request, res: Response) => {
   }
 };
 
-export const fetchAndStoreNewPrices = async (req: Request, res: Response) => {
+export const fetchAndStoreNewPrices = async () => {
   try {
     const products = await ProductModel.find({}).select(
       "productUrl currentPrice"
@@ -353,16 +353,9 @@ export const fetchAndStoreNewPrices = async (req: Request, res: Response) => {
 
     await Promise.all(fetchPromises);
 
-    res.status(200).json({
-      success: true,
-      message: `Price fetch completed and stored.`,
-    });
+    console.log("Price fetch completed and stored.");
   } catch (error: any) {
     console.log("Error fetching and storing prices:", error.message);
-    res.status(500).json({
-      success: false,
-      msg: error.message,
-    });
   }
 };
 
