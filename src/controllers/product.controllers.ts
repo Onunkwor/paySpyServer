@@ -255,7 +255,6 @@ export const getProduct = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const objectId = new mongoose.Types.ObjectId(id);
-    console.log(id);
 
     const product = await ProductModel.findById(objectId);
     if (!product) {
@@ -283,7 +282,6 @@ export const getProductsHome = async (req: Request, res: Response) => {
     const products = await ProductModel.find({})
       .select("title image currency currentPrice category")
       .lean(); // Convert the result to plain JavaScript objects
-    console.log(products);
 
     if (products.length > 0) {
       // Check if products were found
