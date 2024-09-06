@@ -8,8 +8,9 @@ import { PORT } from "./config";
 import authRouter from "./routers/auth.router";
 import productRouter from "./routers/product.router";
 import {
-  fetchAndUpdatePrices,
+  fetchAndStoreNewPrices,
   sendPriceDropNotifications,
+  updateProductPrices,
 } from "./controllers/product.controllers";
 
 //App begins
@@ -44,9 +45,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app
-  .route("/api/product/fetchAndUpdate")
-  .get(fetchAndUpdatePrices)
-  .post(fetchAndUpdatePrices);
+  .route("/api/product/fetchPrice")
+  .get(fetchAndStoreNewPrices)
+  .post(fetchAndStoreNewPrices);
+app
+  .route("/api/product/updatePrice")
+  .get(updateProductPrices)
+  .post(updateProductPrices);
 app
   .route("/api/product/sendEmail")
   .get(sendPriceDropNotifications)

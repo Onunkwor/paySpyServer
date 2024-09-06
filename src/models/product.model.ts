@@ -7,6 +7,7 @@ const productSchema = new mongoose.Schema(
     image: { type: String, required: true },
     title: { type: String, required: true },
     currentPrice: { type: String, required: true },
+    tempNewPrice: { type: String },
     priceHistory: [
       {
         currentPrice: { type: String },

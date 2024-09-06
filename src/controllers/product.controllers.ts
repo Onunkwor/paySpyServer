@@ -307,15 +307,14 @@ export const getProductsHome = async (req: Request, res: Response) => {
   }
 };
 
-export const fetchAndUpdatePrices = async (req: Request, res: Response) => {
+export const fetchAndStoreNewPrices = async (req: Request, res: Response) => {
   try {
     const products = await ProductModel.find({}).select(
       "productUrl currentPrice"
     );
 
-    let updatedProductsCount = 0;
-    const updatePromises = products.map(async (product) => {
-      const { productUrl, currentPrice } = product;
+    const fetchPromises = products.map(async (product) => {
+      const { productUrl } = product;
 
       const username = BRIGHT_DATA_USERNAME;
       const password = BRIGHT_DATA_PASSWORD;
@@ -330,6 +329,7 @@ export const fetchAndUpdatePrices = async (req: Request, res: Response) => {
         port,
         rejectUnauthorized: false,
       };
+
       const response = await axios.get(productUrl, options);
 
       if (response.status === 200) {
@@ -341,25 +341,61 @@ export const fetchAndUpdatePrices = async (req: Request, res: Response) => {
           .filter((_, index) => index === 1)
           .join("");
 
-        if (newPrice && newPrice !== currentPrice) {
-          const priceHistory = product.priceHistory || [];
-          priceHistory.push({
-            currentPrice,
-            originalPrice: currentPrice,
-            discount: product.discount || "0",
-            date: new Date(),
-          });
-
+        if (newPrice) {
+          // Store the new price temporarily in a separate field
           await ProductModel.updateOne(
             { _id: product._id },
-            {
-              currentPrice: newPrice,
-              priceHistory,
-            }
+            { tempNewPrice: newPrice }
           );
-
-          updatedProductsCount++;
         }
+      }
+    });
+
+    await Promise.all(fetchPromises);
+
+    res.status(200).json({
+      success: true,
+      message: `Price fetch completed and stored.`,
+    });
+  } catch (error: any) {
+    console.log("Error fetching and storing prices:", error.message);
+    res.status(500).json({
+      success: false,
+      msg: error.message,
+    });
+  }
+};
+
+export const updateProductPrices = async (req: Request, res: Response) => {
+  try {
+    const products = await ProductModel.find({
+      tempNewPrice: { $exists: true },
+    }).select("currentPrice tempNewPrice priceHistory discount");
+
+    let updatedProductsCount = 0;
+
+    const updatePromises = products.map(async (product) => {
+      const { currentPrice, tempNewPrice } = product;
+
+      if (tempNewPrice && tempNewPrice !== currentPrice) {
+        const priceHistory = product.priceHistory || [];
+        priceHistory.push({
+          currentPrice,
+          originalPrice: currentPrice,
+          discount: product.discount || "0",
+          date: new Date(),
+        });
+
+        await ProductModel.updateOne(
+          { _id: product._id },
+          {
+            currentPrice: tempNewPrice,
+            priceHistory,
+            $unset: { tempNewPrice: 1 }, // Remove the temp field after updating
+          }
+        );
+
+        updatedProductsCount++;
       }
     });
 
@@ -367,10 +403,10 @@ export const fetchAndUpdatePrices = async (req: Request, res: Response) => {
 
     res.status(200).json({
       success: true,
-      message: `Price check completed. ${updatedProductsCount} products were updated.`,
+      message: `Product prices updated. ${updatedProductsCount} products were updated.`,
     });
   } catch (error: any) {
-    console.log("Error updating prices:", error.message);
+    console.log("Error updating product prices:", error.message);
     res.status(500).json({
       success: false,
       msg: error.message,
