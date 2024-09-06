@@ -32,10 +32,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.use((req, res, next) => {
-  res.setTimeout(600000); // Set timeout to 10 minutes (600,000 milliseconds)
-  next();
-});
 app.use((req: Request, res: Response, next: NextFunction) => {
   for (const [key, value] of Object.entries(req.body)) {
     if (value === undefined || value === "") {
