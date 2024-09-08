@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { PORT } from "./config";
 import authRouter from "./routers/auth.router";
 import productRouter from "./routers/product.router";
+import cron from "node-cron";
 import {
   fetchAndStoreNewPrices,
   sendPriceDropNotifications,
@@ -68,8 +69,13 @@ app.get("/", (_, res: Response) => {
 app.listen(PORT, () => {
   console.log(`App is listening on ${PORT}`);
   connectDB();
-  // Fetch and store new prices immediately when the server starts
-  fetchAndStoreNewPrices()
-    .then(() => console.log("Initial fetch and store process completed"))
-    .catch((err) => console.error("Error during initial fetch:", err));
+  cron.schedule("0 5 * * *", async () => {
+    console.log("Running daily price fetch and store process");
+    try {
+      await fetchAndStoreNewPrices();
+      console.log("Daily fetch and store process completed");
+    } catch (err) {
+      console.error("Error during daily fetch:", err);
+    }
+  });
 });
